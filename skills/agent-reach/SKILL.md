@@ -1,11 +1,10 @@
 ---
 name: agent-reach
 description: >
-  Internet retrieval skill for research/search/lookups across LinkedIn, GitHub, YouTube,
-  Reddit, Twitter/X, Facebook, Instagram, Xiaohongshu, Bilibili, V2EX, RSS and web URLs.
-  MUST USE for explicit platform requests and live/current internet research. For LinkedIn,
-  companies, people, jobs, hiring, or LinkedIn posts, use the configured LinkedIn MCP via
-  mcporter before generic web search. Do not fabricate sources or pad requested result counts.
+  MUST USE for LinkedIn and internet research/search/lookups.
+  Handles GitHub, YouTube, Reddit, X/Twitter, Facebook, Instagram,
+  Xiaohongshu, Bilibili, V2EX, RSS and web URLs. For LinkedIn use
+  the configured LinkedIn MCP via mcporter before generic web search.
 metadata:
   homepage: https://github.com/moe1979/Agent-Reach
 ---
