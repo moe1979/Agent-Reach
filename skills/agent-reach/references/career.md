@@ -16,13 +16,11 @@ On Hermes/Windows, use the installed `mcporter` command directly from PATH. Do n
 mcporter list linkedin
 mcporter call linkedin.get_my_profile
 mcporter call linkedin.get_person_profile linkedin_username="username"
-mcporter call linkedin.get_person_profile linkedin_username="username" sections="experience,education,skills"
 mcporter call linkedin.search_people keywords="AI engineer" location="Germany"
 mcporter call linkedin.search_companies keywords="predictive maintenance medical imaging"
 mcporter call linkedin.get_company_profile company_name="company-slug"
 mcporter call linkedin.get_company_profile company_name="company-slug" sections="posts,jobs"
 mcporter call linkedin.get_company_employees company_name="company-slug"
-mcporter call linkedin.get_company_employees company_name="company-slug" keywords="AI"
 mcporter call linkedin.search_jobs keywords="predictive maintenance" location="Germany" max_pages=2
 mcporter call linkedin.get_job_details job_id="JOB_ID"
 mcporter call linkedin.search_posts keywords="predictive maintenance medical imaging" date_posted="past-month" max_pages=2
@@ -42,44 +40,65 @@ When the user asks to find N LinkedIn companies relevant to a topic:
 
 ## Strict Evidence Gate
 
-A company may be labeled **Verified Relevant** only when retrieved LinkedIn evidence supports BOTH sides of the user's requested intersection.
+A company may be labeled **Verified Relevant** only when retrieved LinkedIn evidence supports BOTH the requested domain and the requested operational capability.
 
-For a query such as "AI-based predictive maintenance for medical equipment or medical imaging", require:
+For **predictive maintenance (PdM) of medical equipment or medical imaging equipment**, require:
 
-- **Domain evidence:** LinkedIn profile/posts/jobs explicitly support medical devices, medical equipment, healthcare equipment, diagnostic imaging, radiology, MRI, CT, X-ray, ultrasound, or a comparably direct medical-technology domain; AND
-- **Capability evidence:** LinkedIn profile/posts/jobs explicitly support predictive maintenance, condition monitoring, equipment-health monitoring, failure prediction, anomaly detection for equipment, asset monitoring, digital twins for equipment health, reliability analytics, or a comparably direct maintenance/reliability capability.
+- **Medical-equipment domain evidence:** the retrieved LinkedIn profile/posts/jobs explicitly concern physical medical devices/equipment or imaging equipment such as MRI, CT, X-ray, ultrasound, PET/SPECT, radiotherapy systems, patient monitors, ventilators, pumps, laboratory analyzers, or comparable maintainable healthcare assets; AND
+- **Equipment-maintenance evidence:** the retrieved LinkedIn content explicitly concerns predicting, detecting, or preventing degradation/failure of the **equipment, component, subsystem, or asset itself**. Valid concepts include predictive maintenance, condition-based maintenance, equipment health, machine health, component failure prediction, remaining useful life (RUL), anomaly detection on equipment telemetry, service prediction, remote equipment diagnostics, reliability analytics, uptime/downtime optimization, digital twins for asset health, or maintenance scheduling based on equipment condition.
 
-Merely having "AI", "machine learning", "healthcare", "medical scribe", "computer vision", "IoT", "data annotation", or "medical imaging" is **not sufficient** to infer predictive maintenance.
+### Critical semantic exclusion: PdM is not clinical prediction
 
-Merely having predictive maintenance for automotive/industrial assets is **not sufficient** to infer medical-equipment predictive maintenance.
+**Predictive maintenance is an asset/equipment reliability concept. It is NOT prediction about a patient, disease, diagnosis, or clinical outcome.**
+
+The following must NOT be counted as equipment PdM unless separate retrieved evidence explicitly connects them to equipment/component health or maintenance:
+
+- disease-risk prediction;
+- early diagnosis or early detection of disease/inflammation;
+- preventive healthcare;
+- patient deterioration prediction;
+- cardiac-event prediction;
+- ECG/EEG/patient monitoring analytics;
+- medical image interpretation, segmentation, classification, reconstruction, or diagnostic AI;
+- PACS/DICOM analytics aimed at diagnosis;
+- clinical decision support;
+- medical scribe/EMR/RCM AI;
+- computer vision for diagnosis;
+- data annotation for medical AI;
+- predictive analytics whose prediction target is a patient or clinical outcome.
+
+**Test the prediction target:** ask "What is being predicted?" If the answer is patient/disease/diagnosis/outcome, it is clinical prediction and must be rejected for an equipment-PdM query. If the answer is equipment failure/degradation/component health/service need/remaining life/downtime, it may qualify.
+
+Likewise, predictive maintenance for automotive, aerospace, manufacturing, energy, or generic industrial assets does not qualify merely because the same company also has a medical-imaging business. Retrieved evidence must connect maintenance/reliability capability to medical equipment or a clearly applicable medical-device offering.
 
 ### Evidence labels
 
-Classify each candidate internally as one of:
+Classify each candidate internally as:
 
-- `VERIFIED_DIRECT` — both domain and capability are explicitly supported by LinkedIn evidence.
-- `VERIFIED_ADJACENT` — one side is explicit and the other is strongly adjacent but not explicit. May be shown only in a clearly separated "Adjacent / needs verification" section, never counted toward the requested verified total.
-- `REJECTED` — evidence does not support the requested intersection.
-
-Do not expose internal scoring mechanics unless useful, but preserve the distinction in the final wording.
+- `VERIFIED_DIRECT` — explicit medical-equipment domain + explicit equipment-health/maintenance prediction evidence.
+- `VERIFIED_ADJACENT` — relevant medical-equipment company with reliability/monitoring capability that is plausible but not explicitly tied to PdM in retrieved LinkedIn evidence, or an equipment-PdM company whose medical-device applicability is not explicit. Show only under "Adjacent / needs verification" and never count toward the verified total.
+- `CLINICAL_PREDICTION_NOT_PDM` — predicts disease, patient risk, diagnosis, imaging findings, or clinical outcomes rather than equipment health. Reject for equipment-PdM requests.
+- `REJECTED` — otherwise unsupported.
 
 ## Claim discipline
 
 For every included company:
 
 - `What they do` must paraphrase retrieved LinkedIn evidence, not general knowledge.
-- `Why relevant` must identify the exact retrieved evidence connecting it to the user's requested topic.
-- LinkedIn URL must come from the MCP result; never synthesize it from a company name.
-- Quantitative claims are allowed only when the retrieved LinkedIn content itself contains the number.
+- `Why relevant` must state the retrieved evidence connecting the company to **equipment reliability/maintenance**, not merely AI or healthcare.
+- LinkedIn URL must come from the MCP result; never synthesize it.
+- Quantitative claims are allowed only when retrieved LinkedIn content contains the number.
 - Do not claim "actively developing", "market leader", "#1", market share, installed base, accuracy, downtime reduction, customer count, or similar unless explicitly retrieved.
-- Do not transform a weak adjacent capability into a direct claim. For example, medical-image annotation does not equal predictive maintenance.
+- Medical-image annotation does not equal predictive maintenance.
+- Disease prediction does not equal predictive maintenance.
+- Preventive medicine does not equal preventive/predictive equipment maintenance.
 
 ## People-research workflow
 
 1. Use `linkedin.search_people` for discovery.
-2. Use `linkedin.get_person_profile` for details on selected results.
-3. Request heavy sections such as posts or certifications separately when needed.
-4. Do not expose contact information unless the user's task specifically requires it and the tool returned it legitimately.
+2. Use `linkedin.get_person_profile` for selected results.
+3. Request heavy sections separately when needed.
+4. Do not expose contact information unless specifically required and legitimately returned.
 
 ## Evidence and URL rules
 
@@ -90,9 +109,9 @@ For every included company:
 
 ## Read-only safety boundary
 
-Default to read/search operations. Connection requests and messages are write operations; do not invoke them unless the user explicitly requests that action and confirms the intended recipient/content when required.
+Default to read/search operations. Connection requests and messages are write operations; do not invoke them unless the user explicitly requests that action and confirms intended recipient/content when required.
 
-Reading conversations can mark items as read. Do not use inbox/conversation tools unless the user's task explicitly requires messages.
+Reading conversations can mark items as read. Do not use inbox/conversation tools unless explicitly required.
 
 ## Authentication
 
