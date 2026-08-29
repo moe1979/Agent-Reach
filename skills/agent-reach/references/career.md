@@ -27,16 +27,60 @@ mcporter call linkedin.search_posts keywords="predictive maintenance medical ima
 mcporter call linkedin.get_company_posts company_name="company-slug"
 ```
 
-## Company-research workflow
+## Company-research workflow — bounded execution
 
-When the user asks to find N LinkedIn companies relevant to a topic:
+When the user asks to find N LinkedIn companies relevant to a topic, use this bounded workflow. The budgets below are **hard execution limits**, not suggestions.
 
-1. Run `linkedin.search_companies` with one semantically useful query.
-2. If fewer than N plausible candidates appear, run at most 2 additional targeted LinkedIn queries using distinct domain terms. Do not switch to Google/Bing merely to fill N.
-3. Deduplicate candidates by canonical LinkedIn company URL/slug.
-4. For each plausible candidate, call `linkedin.get_company_profile` using the returned slug/URL. Request `posts` or `jobs` only when needed to prove relevance.
-5. Apply the Evidence Gate below before including the company.
-6. Stop when N verified companies are found or the candidate pool is exhausted. If fewer than N pass, return the smaller verified set and state that LinkedIn evidence did not support additional entries.
+### Phase A — discovery budget
+
+Maintain an internal `discovery_query_count`, starting at 0.
+
+1. Run **one** `linkedin.search_companies` query that expresses the full intersection of the user's criteria. Increment `discovery_query_count`.
+2. Deduplicate returned candidates immediately by canonical LinkedIn company URL/slug.
+3. Rank candidates by how directly their returned LinkedIn text appears to satisfy all material criteria.
+4. If the first search does not produce enough plausible candidates for verification, run targeted expansion queries using distinct missing concepts.
+5. **Normal hard limit: no more than 3 total `linkedin.search_companies` calls.** Once `discovery_query_count == 3`, do not call `search_companies` again during normal discovery.
+6. Do not run near-duplicate keyword permutations merely to seek a "stronger" or "better" candidate after enough verified results exist.
+
+### Phase B — candidate verification
+
+1. Select the strongest candidate pool rather than profiling every search result. For a request for N companies, normally verify at most `max(N + 3, 5)` candidates in the first verification batch; cap the first batch at 8 candidates.
+2. Call `linkedin.get_company_profile` for independent candidates **in parallel when the runtime supports parallel tool calls**.
+3. Request `posts` or `jobs` only when the base profile is insufficient to determine the Evidence Gate. Do not fetch heavy sections by default.
+4. Apply the Strict Evidence Gate below to each candidate.
+5. Count only `VERIFIED_DIRECT` candidates toward N.
+
+### HARD EARLY STOP
+
+As soon as the number of `VERIFIED_DIRECT` candidates reaches the user's requested N:
+
+**STOP RETRIEVAL IMMEDIATELY AND COMPOSE THE ANSWER.**
+
+Do not:
+
+- search for stronger alternatives;
+- search for a better Nth candidate;
+- continue discovery to build a reserve list;
+- profile additional companies already queued but not needed;
+- add adjacent companies when N direct companies are already verified.
+
+The user's requested count is a completion target, not a minimum invitation to continue researching.
+
+### One final expansion round — only when needed
+
+If the normal 3-query discovery budget plus first verification batch yields fewer than N `VERIFIED_DIRECT` companies:
+
+1. You may perform **one final expansion round** consisting of **at most 2 additional `linkedin.search_companies` calls** targeted specifically at the missing criterion or equipment/domain term.
+2. Deduplicate against every candidate already seen.
+3. Verify only newly discovered plausible candidates, preferably in one parallel batch.
+4. Apply the Evidence Gate.
+5. Then **STOP regardless of count**. Return the verified subset and state that LinkedIn evidence did not support enough additional direct matches.
+
+Therefore the absolute company-discovery ceiling for one user request is normally **5 `linkedin.search_companies` calls total**: 3 normal + 2 final-expansion calls. Reaching this ceiling requires that fewer than N direct candidates were verified after the normal phase.
+
+### No padding
+
+If the workflow ends with fewer than N verified companies, return fewer than N. Never weaken the Evidence Gate, reinterpret clinical prediction as equipment PdM, or use generic web/model memory merely to fill the requested number.
 
 ## Strict Evidence Gate
 
